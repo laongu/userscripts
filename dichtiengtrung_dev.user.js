@@ -65,29 +65,33 @@
         const splitText = dictionary.tokenize(chineseText);
 
         const translations = splitText.map(word => {
-          let translation = '';
+            let translation = '';
+            let phienAm = [];
 
-          // Tìm kiếm từ trong từ điển
-          const searchResult = dictionary.search(word);
+            // Tìm kiếm từ trong từ điển
+            const searchResult = dictionary.search(word);
 
-          // Nếu tìm thấy, sử dụng nghĩa đầu tiên (nếu có)
-          if (searchResult) {
-            translation = searchResult.split('/')[0].trim();
-          } else {
-            // Nếu không tìm thấy, thử tìm trong từ điển phát âm
-            const phienAmResult = dictionary.phienAmDictionary.get(word);
-
-            // Nếu tìm thấy trong từ điển phát âm, sử dụng kết quả đó
-            if (phienAmResult) {
-              translation = phienAmResult;
+            // Nếu tìm thấy, sử dụng nghĩa đầu tiên (nếu có)
+            if (searchResult) {
+                phienAm = word.split('').map(char => dictionary.phienAmDictionary.get(char));
+                translation = searchResult.split('/')[0].trim();
             } else {
-              // Nếu không tìm thấy ở cả hai nơi, sử dụng từ gốc
-              translation = word;
-            }
-          }
+                // Nếu không tìm thấy, thử tìm trong từ điển phát âm
+                const phienAmResult = dictionary.phienAmDictionary.get(word);
 
-          // Trả về chuỗi "word {translation}"
-          return `{${translation} ${word}}`;
+                // Nếu tìm thấy trong từ điển phát âm, sử dụng kết quả đó
+                if (phienAmResult) {
+                    phienAm = word.split('').map(char => dictionary.phienAmDictionary.get(char));
+                    translation = phienAmResult;
+                } else {
+                    // Nếu không tìm thấy ở cả hai nơi, sử dụng từ gốc
+                    phienAm = [];
+                    translation = word;
+                }
+            }
+
+            // Trả về chuỗi "{translation} {word} {phienAm.join(' ')}"
+            return `{${translation} ${word} ${phienAm.join(' ')}}`;
         });
 
         translatedText = translations.join(' ');
