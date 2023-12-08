@@ -169,7 +169,7 @@
 
   // tạo từ điển
   const dictionary = new Dictionary();
-  dictionary.initialize();
+  dictionary.init();
 
   $download.one('click contextmenu', function (e) {
     e.preventDefault();
