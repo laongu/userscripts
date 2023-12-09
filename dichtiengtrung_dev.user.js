@@ -79,7 +79,7 @@
   toggleButton.addEventListener('click', function() {
     featureState = 1 - featureState; // Toggle the state (0 to 1 or 1 to 0)
     localStorage.setItem('devVietPhrase', featureState);
-    alert('Dev: ' + (featureState === 1 ? 'On' : 'Off'));
+    alert('Dev: ' + (featureState === 1 ? 'Bật' : 'Tắt'));
   });
 
 
@@ -87,7 +87,7 @@
   let translatedText;
 
   // Thêm Names tại đây
-  const names = localStorage.getItem('VietPhrase');
+  const names = localStorage.getItem('VietPhrase') || '=';
   console.log(names);
 
   class CustomDictionary extends Dictionary {
