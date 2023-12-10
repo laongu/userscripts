@@ -15,37 +15,54 @@
 (function($, window, document, undefined) {
   'use strict';
 
+  /**
+   * Enable logging in Console
+   * @type {Number} 0 : Disable
+   *                1 : Error
+   *                2 : Info + Error
+   */
   var debugLevel = 2;
-  var citeSources = ['最新章节请访问https://m.sinodan.cc', '拉倒底部可以下载安卓APP，不怕网址被屏蔽了'];
-  var txt = '';
-  var url = '';
-  var count = 0;
-  var begin = '';
-  var end = '';
-  var chapId = '';
-  var chapTitle = '';
-  var titleError = [];
 
-  function sendPostRequest(url, data, callback) {
-    var ajax = new XMLHttpRequest();
-    ajax.open("POST", url, true);
-    ajax.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    ajax.onreadystatechange = function () {
-      if (ajax.readyState === 4 && ajax.status === 200) {
-        callback(ajax.responseText);
-      }
-    };
-    ajax.send(data);
+  // dịch từ sangtacviet
+  function sendPostRequestAsync(url, data) {
+      return new Promise((resolve, reject) => {
+          var ajax = new XMLHttpRequest();
+          ajax.open("POST", url, true);
+          ajax.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+
+          ajax.onreadystatechange = function () {
+              if (ajax.readyState === 4) {
+                  if (ajax.status === 200) {
+                      resolve(ajax.responseText);
+                  } else {
+                      reject(new Error(`Request failed with status: ${ajax.status}`));
+                  }
+              }
+          };
+
+          ajax.send(data);
+      });
   }
 
+  /**
+  * Những đoạn ghi chú nguồn truyện
+  * Toàn bộ nội dung ghi chú, có phân biệt hoa thường
+  *
+  * @type {Array}
+  */
+  var citeSources = [
+    '最新章节请访问https://m.sinodan.cc',
+    'truyện được lấy tại t.r.u.y.ệ.n.y-y',
+  ];
+
   function cleanHtml(str) {
-    citeSources.forEach(source => {
-      if (str.includes(source)) {
+    citeSources.forEach(function(source) {
+      if (str.indexOf(source) !== -1) {
         str = str.replace(source, '');
         return false;
       }
     });
-    str = str.replace(/[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u10000-\u10FFFF]+/gm, '');
+    str = str.replace(/[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u10000-\u10FFFF]+/gm, ''); // eslint-disable-line
     return str;
   }
 
@@ -96,13 +113,18 @@
   }
 
   function html2text(html) {
-    return html.replace(/\n|\t/g, '').replace(/(<br\s*\/?>\s*)+<br\s*\/?>/g, '\n\n').replace(/<br\s*\/?>/g, '').replace(/<[^>]+>/g, '');
+    html = html.replace(/\n|\t/g, '');
+    html = html.replace(/(<br\s*\/?>\s*)+<br\s*\/?>/g, '\n\n');
+    html = html.replace(/<br\s*\/?>/g, '');
+    html = html.replace(/<[^>]+>/g, '');
+    return html;
   }
 
   function downloadFail(err) {
     $downloadStatus('red');
     titleError.push(chapTitle);
-    txt += `\n\n${url}\n`;
+    
+    txt += LINE + url + LINE;
 
     if (debugLevel == 2) console.log('%cError: ' + url, 'color:red;');
     if (debugLevel > 0) console.error(err);
@@ -111,99 +133,167 @@
   function saveEbook() {
     if (endDownload) return;
     endDownload = true;
-    var ebookTitle = $('h1').text().trim();
-    sendPostRequest("https://sangtacviet.com/", `sajax=trans&content=${encodeURIComponent(ebookTitle)}`, response => {
-          ebookTitle += response;
-        });
-    var fileName = `${ebookTitle}.txt`;
-    var beginEnd = titleError.length ? `\n\nCác chương lỗi: ${titleError.join(', ')}\n` : '';
-    txt = `${ebookTitle.toUpperCase()}\n\n${beginEnd}${txt}`;
-    var blob = new Blob([txt], { encoding: 'UTF-8', type: 'text/plain; charset=UTF-8' });
 
-    $download.attr({ href: window.URL.createObjectURL(blob), download: fileName }).text('Tải xong, click để tải về').off('click');
+    var ebookTitle = $('h1').text().trim(),
+      fileName = ebookTitle + '.txt',
+      beginEnd = '',
+      blob;
+
+
+    if (titleError.length) {
+
+      titleError = LINE + 'Các chương lỗi: ' + titleError.join(', ') + LINE;
+      if (debugLevel > 0) console.warn('Các chương lỗi:', titleError);
+
+    } else {
+      titleError = '';
+    }
+
+    if (begin !== end) beginEnd = 'Từ [' + begin + '] đến [' + end + ']';
+
+    // data
+    txt = ebookTitle.toUpperCase() + LINE2 + beginEnd + LINE + titleError + LINE2 + txt;
+
+    blob = new Blob([txt], {
+      encoding: 'UTF-8',
+      type: 'text/plain; charset=UTF-8'
+    });
+
+    $download.attr({
+      href: window.URL.createObjectURL(blob),
+      download: fileName
+    }).text('Tải xong, click để tải về').off('click');
     $downloadStatus('greenyellow');
 
     $win.off('beforeunload');
-    document.title = `[⇓] ${ebookTitle}`;
 
+    document.title = '[⇓] ' + ebookTitle;
     if (debugLevel === 2) console.log('%cDownload Finished!', 'color:blue;');
     if (debugLevel > 0) console.timeEnd('TXT Downloader');
   }
 
-  function getContent(pageId) {
-    if (endDownload) return;
-    chapId = pageId;
+  async function getContent(pageId) {
+      if (endDownload) return;
+      chapId = pageId;
 
-    $.get(chapId).done(response => {
-      var $data = $(response);
-      var $chapter = $data.find('#nr1');
-      var $notContent = $chapter.find('iframe, script, style, center, font');
-      var $next = $data.find('span.curr').next('a');
-      if (!$next.length) $next = $data.find('a.next');
-      chapTitle = $data.find('h1').text().trim();
+      try {
+          const response = await $.get(chapId);
+          const $data = $(response);
 
-      if (!$chapter.length) {
-        downloadFail('Missing content.');
-      } else {
-        $downloadStatus('yellow');
-        if ($notContent.length) $notContent.remove();
-        var chineseText = `\n\n${chapTitle}\n${cleanHtml(html2text(fixText($chapter.html())))}`;
-        var chineseText2 = chineseText.replace(/\d{4}\/\d{2}\/\d{2}/, ''); 
+          const $chapter = $data.find('#nr1'),
+                $notContent = $chapter.find('iframe, script, style, center, font');
+                
 
-        sendPostRequest("https://sangtacviet.com/", `sajax=trans&content=${encodeURIComponent(chineseText2)}`, response => {
-          txt += response;
-        });
+          if (endDownload) return;
+
+          let $next = $data.find('span.curr').next('a');
+          chapTitle = $data.find('h1').text().trim() + LINE2;
+
+          if (!$next.length) {
+              chapTitle = '';
+              $next = $data.find('a.next');
+          }
+
+          if (!$chapter.length) {
+              downloadFail('Missing content.');
+          } else {
+              $downloadStatus('yellow');
+
+              if ($notContent.length) $notContent.remove();
+
+              const chineseText = chapTitle + cleanHtml(html2text(fixText($chapter.html())));
+
+              const postResponse = await sendPostRequestAsync("https://sangtacviet.com/", "sajax=trans&content=" + encodeURIComponent(chineseText));
+              txt += postResponse;
+          }
+
+          if (count === 0) begin = chapTitle;
+          end = chapTitle;
+
+          count++;
+
+          document.title = '[' + count + '] ' + pageName;
+
+          $download.text('Đang tải chương: ' + count);
+
+          if (debugLevel === 2) console.log('%cComplete: ' + chapId, 'color:green;');
+
+  		const nextUrl = $next.attr('href');
+          if (!nextUrl.length || nextUrl == '#') {
+              saveEbook();
+          } else {
+              await getContent($next.attr('href'));
+          }
+      } catch (err) {
+          chapTitle = null;
+          downloadFail(err);
+          saveEbook();
       }
-
-      if (count === 0) begin = chapTitle;
-      end = chapTitle;
-      count++;
-      document.title = `[${count}] ${pageName}`;
-      $download.text(`Đang tải chương: ${count}`);
-
-      if (debugLevel === 2) console.log('%cComplete: ' + chapId, 'color:green;');
-
-      var nextUrl = $next.attr('href');
-      if (!nextUrl.length || nextUrl == '#') {
-        saveEbook();
-      } else {
-        getContent($next.attr('href'));
-      }
-    }).fail(err => {
-      chapTitle = null;
-      downloadFail(err);
-      saveEbook();
-    });
   }
 
+
   // INDEX
-  var pageName = document.title;
-  var $win = $(window);
-  var $download = $('<a>', { style: 'background-color:lightblue;', href: '#download', text: 'Tải xuống' });
-  var $downloadStatus = status => $download.css("background-color", "").css("background-color", status);
-  var endDownload = false;
-  var LINE = '\n\n';
-  var LINE2 = '\n\n\n\n';
+  var pageName = document.title,
+    $win = $(window),
+
+    $download = $('<a>', {
+      style: 'background-color:lightblue;',
+      href: '#download',
+      text: 'Tải xuống'
+    }),
+    $downloadStatus = function(status) {
+      $download.css("background-color", "").css("background-color", status);
+    },
+    endDownload = false,
+
+    LINE = '\n\n',
+    LINE2 = '\n\n\n\n',
+
+    txt = '',
+    url = '',
+    count = 0,
+    begin = '',
+    end = '',
+
+    chapId = '',
+    chapTitle = '',
+    chapList = [],
+    chapListSize = 0,
+    titleError = [];
+
+
 
   $download.insertBefore('h1');
 
-  $download.one('click contextmenu', e => {
+  $download.one('click contextmenu', function (e) {
     e.preventDefault();
     document.title = '[...] Vui lòng chờ trong giây lát';
 
     var firstChap = location.href;
-    var startFrom = e.type === 'contextmenu' ? prompt('Nhập ID chương truyện bắt đầu tải:', firstChap) || firstChap : firstChap;
+    console.log(firstChap);
+    var startFrom = firstChap;
+
+    if (e.type === 'contextmenu') {
+      $download.off('click');
+      startFrom = prompt('Nhập ID chương truyện bắt đầu tải:', firstChap) || firstChap;
+    } else {
+      $download.off('contextmenu');
+    }
 
     if (startFrom.length) {
       getContent(startFrom);
 
-      $win.on('beforeunload', () => 'Truyện đang được tải xuống...');
+      $win.on('beforeunload', function() {
+        return 'Truyện đang được tải xuống...';
+      });
 
-      $download.one('click', e => {
+      $download.one('click', function(e) {
         e.preventDefault();
         saveEbook();
       });
     }
+
   });
+
 
 })(jQuery, window, document);
