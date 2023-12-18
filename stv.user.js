@@ -12,6 +12,50 @@
 (function() {
     'use strict';
 
+
+// Gán giá trị mặc định cho setting
+var setting = {
+    enable: true,
+    heightauto: true,
+    widthauto: false,
+    scaleauto: true,
+    enableajax: false,
+    enablescript: true,
+    strictarial: false,
+    stvserver: "sangtacviet.com",
+    showbtn: false,
+    namedata: ""
+};
+
+// Gọi hàm bắt đầu sau khi đã thiết lập giá trị
+startScript();
+
+var namedata = `
+老五=Lão Ngũ
+真帅气=thật đẹp trai
+`;
+var namedatacache = null;
+function replaceName(text){
+    var t = text;
+    if(namedatacache){
+        for(var i=0;i<namedatacache.length;i++){
+            t = t.replace(namedatacache[i][0], namedatacache[i][1]);
+        }
+        return t;
+    }
+    namedatacache = [];
+    var n = namedata.split("\n");
+    for(var i=0;i<n.length;i++){
+        var m = n[i].trim().split("=");
+        if(m[0] && m[1]){
+            var r = new RegExp(m[0],"g");
+            namedatacache.push([r,m[1]]);
+            t = t.replace(r, m[1]);
+        }
+    }
+    return t;
+}
+
 function g(i){
     return document.getElementById(i);
 }
@@ -55,30 +99,6 @@ function showBtn() {
     }
 }
 
-// Gán giá trị mặc định cho setting
-var setting = {
-    enable: true,
-    heightauto: true,
-    widthauto: false,
-    scaleauto: true,
-    enableajax: false,
-    enablescript: true,
-    strictarial: false,
-    stvserver: "sangtacviet.com",
-    showbtn: false,
-    namedata: ""
-};
-
-// Gọi hàm bắt đầu sau khi đã thiết lập giá trị
-startScript();
-
-var namedata = "";
-var namedatacache = null;
-function replaceName(text){
-    var t = text;
-
-    return t;
-}
 
 function insertClearfix(node){
     var clearfix = document.createElement("div");
