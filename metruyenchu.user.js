@@ -309,7 +309,7 @@
 
                 const slugArray = responseData._data.chapters.map(chapter => {
                     // Thêm location.href vào mỗi phần tử trong mảng slugArray
-                    return `${location.href}/${chapter.slug}`;
+                    return `${referrer}/${chapter.slug}`;
                 });
 
                 chapList = slugArray;
