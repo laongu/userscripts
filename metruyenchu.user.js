@@ -245,7 +245,6 @@
         downloadId = function (url) {
             return url.trim().replace(/^.*\//, '');
         },
-        $novelId = $('#js-nh-tabContent'),
         chapList = [],
         chapListSize = 0,
         chapId = '',
@@ -270,9 +269,6 @@
             '">Metruyenchu</a></p><p>Userscript được viết bởi: Fnooub</p>',
         jepub;
 
-        //console.log(pathname);
-
-    if (!$novelId.length) return;
 
     var $ebookType = $('a[href*="/truyen?genre="]');
     if ($ebookType.length)
